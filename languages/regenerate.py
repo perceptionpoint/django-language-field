@@ -5,12 +5,12 @@ Subtag Registry, either call this module directly from the command line
 (``python regenenerate.py``), or call the ``regenerate`` method.
 
 """
+import codecs
 import os
 import re
-import codecs
 from urllib.request import urlopen
 
-TEMPLATE = u'''# -*- coding: utf-8 -*-
+TEMPLATE = '''# -*- coding: utf-8 -*-
 from django.utils.translation import gettext_lazy as _
 
 LANGUAGES = (
@@ -19,17 +19,18 @@ LANGUAGES = (
 
 '''
 
-def regenerate(location='http://www.iana.org/assignments/language-subtag-registry',
-               filename=None, default_encoding='utf-8'):
+
+def regenerate(
+    location='http://www.iana.org/assignments/language-subtag-registry', filename=None, default_encoding='utf-8'
+):
     """
     Generate the languages Python module.
     """
-    paren = re.compile('\([^)]*\)')
+    paren = re.compile(r'\([^)]*\)')
 
     # Get the language list.
     data = urlopen(location)
-    if ('content-type' in data.headers and
-                'charset=' in data.headers['content-type']):
+    if 'content-type' in data.headers and 'charset=' in data.headers['content-type']:
         encoding = data.headers['content-type'].split('charset=')[-1]
     else:
         encoding = default_encoding
@@ -43,23 +44,27 @@ def regenerate(location='http://www.iana.org/assignments/language-subtag-registr
                 languages.append(info)
             info = {}
         elif ':' not in line and p:
-            info[p[0]] = paren.sub('', p[2]+line).strip()
+            info[p[0]] = paren.sub('', p[2] + line).strip()
         else:
             p = line.partition(':')
-            if not p[0] in info: # Keep the first description as it should be the most common
+            if not p[0] in info:  # Keep the first description as it should be the most common
                 info[p[0]] = paren.sub('', p[2]).strip()
 
-    languages_lines = map(lambda x:'("%s", _(u"%s")),'%(x['Subtag'],x['Description']), languages)
+    languages_lines = map(lambda x: '("{}", _(u"{}")),'.format(x['Subtag'], x['Description']), languages)
 
     # Generate and save the file.
     if not filename:
         filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'languages.py')
     # TODO: first make a backup of the file if it exists already.
     f = codecs.open(filename, 'w', 'utf-8')
-    f.write(TEMPLATE % {
-        'languages': '\n    '.join(languages_lines),
-    })
+    f.write(
+        TEMPLATE
+        % {
+            'languages': '\n    '.join(languages_lines),
+        }
+    )
     f.close()
+
 
 if __name__ == '__main__':
     regenerate()
